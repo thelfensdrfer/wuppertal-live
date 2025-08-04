@@ -1,4 +1,4 @@
-FROM python:3.11
+FROM python:3.13
 
 WORKDIR /app
 
@@ -13,9 +13,10 @@ ENV LC_ALL de_DE.UTF-8
 
 COPY poetry.lock pyproject.toml ./
 
-RUN pip install poetry && \
+RUN pip install --upgrade pip && \
+    pip install poetry && \
 	poetry config virtualenvs.create false && \
-	poetry install --no-dev --no-interaction --no-ansi
+	poetry install --no-interaction --no-ansi --no-root
 
 COPY . .
 
