@@ -2,6 +2,7 @@ import html
 import logging
 import os
 import ssl
+from contextlib import asynccontextmanager
 from datetime import datetime
 import locale
 import sqlite3
@@ -13,7 +14,16 @@ from fastapi import FastAPI, Response
 from fastapi_utils.tasks import repeat_every
 from bs4 import BeautifulSoup
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info(app)
+
+    await migrate()
+    await refresh_events()
+
+    yield
+
+app = FastAPI(lifespan=lifespan)
 rss: str or None = None
 
 locale.setlocale(locale.LC_TIME, "de_DE.UTF-8")
@@ -65,7 +75,6 @@ def convert_events_to_xml_items(events: list) -> str:
     )
 
 
-@app.on_event("startup")
 async def migrate():
     conn = sqlite3.connect("database/db.sqlite")
     sql_file_paths = ["migrations/001_initial.sql"]
@@ -77,7 +86,6 @@ async def migrate():
     conn.close()
 
 
-@app.on_event("startup")
 @repeat_every(seconds=3600, wait_first=False, logger=logger)
 async def refresh_events():
     global rss
@@ -282,12 +290,20 @@ def get_events() -> list or False:
         start = None
         end = None
         if uhrzeit_wrapper:
-            start = uhrzeit_wrapper.find(class_="beginn").text.strip()
-            end = uhrzeit_wrapper.find(class_="ende").text.split(" ")[1].strip()
+            try:
+                start = uhrzeit_wrapper.find(class_="beginn").text.strip()
+            except AttributeError:
+                start = None
+            try:
+                end = uhrzeit_wrapper.find(class_="ende").text.split(" ")[1].strip()
+            except AttributeError:
+                end = None
+            except IndexError:
+                end = None
             if end == "Uhr":
                 end = None
 
-        title = child.find("h1").text.strip()
+        title = child.find("h2").text.strip()
         location = child.find(class_="location").text.strip()
 
         events.append(
