@@ -1,13 +1,11 @@
-version: '3'
-
 volumes:
     db:
 
 services:
     app:
         build:
-            context: .
-            dockerfile: Dockerfile
+            context: src/w
+            dockerfile: ../docker/backend/Dockerfile
         env_file:
             - .docker_env
         volumes:
